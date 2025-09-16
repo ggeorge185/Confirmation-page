@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Confirmation Management</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        
+        .admin-section h3 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-family: monospace;
+            height: 120px;
+            resize: vertical;
+        }
+        
+        .btn {
+            background: #4facfe;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .btn:hover {
+            background: #3d8bfe;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .confirmation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .confirmation-table th,
+        .confirmation-table td {
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        
+        .confirmation-table th {
+            background: #4facfe;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .confirmation-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4facfe;
+        }
+        
+        .stat-label {
+            color: #666;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Admin - Confirmation Management</h1>
+        </header>
+        
+        <main>
+            <!-- Statistics -->
+            <div class="admin-section">
+                <h3>📊 Statistics</h3>
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-confirmations">0</div>
+                        <div class="stat-label">Total Confirmations</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="today-confirmations">0</div>
+                        <div class="stat-label">Today's Confirmations</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Generate Confirmation Links -->
+            <div class="admin-section">
+                <h3>🔗 Generate Confirmation Links</h3>
+                <div class="form-group">
+                    <label for="student-name">Student Name:</label>
+                    <input type="text" id="student-name" placeholder="Enter student name">
+                </div>
+                <div class="form-group">
+                    <label for="student-email">Student Email:</label>
+                    <input type="email" id="student-email" placeholder="Enter student email">
+                </div>
+                <button class="btn" onclick="generateLink()">Generate Link</button>
+                
+                <div class="form-group" id="generated-link-group" style="display: none; margin-top: 1rem;">
+                    <label for="generated-link">Generated Confirmation Link:</label>
+                    <textarea id="generated-link" readonly></textarea>
+                    <button class="btn" onclick="copyLink()">Copy Link</button>
+                </div>
+            </div>
+            
+            <!-- Bulk Link Generation -->
+            <div class="admin-section">
+                <h3>📋 Bulk Link Generation</h3>
+                <div class="form-group">
+                    <label for="student-list">Student List (one per line: Name &lt;email@domain.com&gt;):</label>
+                    <textarea id="student-list" placeholder="John Doe &lt;john@example.com&gt;&#10;Jane Smith &lt;jane@example.com&gt;"></textarea>
+                </div>
+                <button class="btn" onclick="generateBulkLinks()">Generate All Links</button>
+                
+                <div class="form-group" id="bulk-links-group" style="display: none; margin-top: 1rem;">
+                    <label for="bulk-links">Generated Links:</label>
+                    <textarea id="bulk-links" readonly></textarea>
+                    <button class="btn" onclick="copyBulkLinks()">Copy All Links</button>
+                    <button class="btn" onclick="downloadCSV()">Download CSV</button>
+                </div>
+            </div>
+            
+            <!-- Confirmation List -->
+            <div class="admin-section">
+                <h3>✅ Confirmations List</h3>
+                <button class="btn" onclick="refreshConfirmations()">Refresh</button>
+                <button class="btn btn-danger" onclick="clearAllConfirmations()">Clear All Data</button>
+                
+                <div id="confirmations-container">
+                    <p>Loading confirmations...</p>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p><a href="index.html">← Back to Confirmation Page</a></p>
+        </footer>
+    </div>
+    
+    <script src="script.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>

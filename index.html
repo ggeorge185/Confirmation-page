@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Participation & Photo Consent Confirmation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Participation & Photo Consent Confirmation</h1>
+        </header>
+        
+        <main id="main-content">
+            <!-- Content will be dynamically loaded based on URL parameters -->
+            <div id="loading" class="loading">
+                <p>Loading...</p>
+            </div>
+            
+            <div id="confirmation-form" class="hidden">
+                <h2>Please Confirm Your Participation</h2>
+                <p>By clicking "Confirm" below, you are agreeing to:</p>
+                <ul>
+                    <li>Participate in the upcoming event/activity</li>
+                    <li>Allow photos to be taken during the event</li>
+                    <li>Consent to the use of these photos for promotional purposes</li>
+                </ul>
+                
+                <div class="student-info">
+                    <p><strong>Student:</strong> <span id="student-name"></span></p>
+                    <p><strong>Email:</strong> <span id="student-email"></span></p>
+                </div>
+                
+                <div class="actions">
+                    <button id="confirm-btn" class="confirm-button">Confirm Participation & Photo Consent</button>
+                </div>
+            </div>
+            
+            <div id="already-confirmed" class="hidden success">
+                <h2>✅ Already Confirmed</h2>
+                <p>You have already confirmed your participation and photo consent.</p>
+                <div class="confirmation-details">
+                    <p><strong>Student:</strong> <span id="confirmed-name"></span></p>
+                    <p><strong>Confirmed on:</strong> <span id="confirmation-date"></span></p>
+                </div>
+            </div>
+            
+            <div id="success-message" class="hidden success">
+                <h2>✅ Confirmation Successful</h2>
+                <p>Thank you! Your participation and photo consent has been confirmed.</p>
+                <div class="confirmation-details">
+                    <p><strong>Student:</strong> <span id="success-name"></span></p>
+                    <p><strong>Confirmed on:</strong> <span id="success-date"></span></p>
+                </div>
+            </div>
+            
+            <div id="error-message" class="hidden error">
+                <h2>❌ Error</h2>
+                <p id="error-text">An error occurred. Please contact your administrator.</p>
+            </div>
+        </main>
+        
+        <footer>
+            <p><a href="admin.html">Administrator View</a></p>
+        </footer>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
