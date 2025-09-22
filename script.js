@@ -1,11 +1,14 @@
 // Confirmation page functionality
 class ConfirmationPage {
     constructor() {
-        this.confirmations = this.loadConfirmations();
+        this.confirmations = [];
         this.init();
     }
 
-    init() {
+    async init() {
+        // Load confirmations from API
+        this.confirmations = await this.loadConfirmations();
+        
         // Get URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
@@ -25,7 +28,7 @@ class ConfirmationPage {
             return;
         }
 
-        // Check if already confirmed
+        // Check if already confirmed (now that we have loaded confirmations)
         const existingConfirmation = this.findConfirmation(token);
         if (existingConfirmation) {
             this.showAlreadyConfirmed(existingConfirmation);
@@ -74,22 +77,31 @@ class ConfirmationPage {
         }
     }
 
-    loadConfirmations() {
+    async loadConfirmations() {
+        try {
+            // Try API first
+            const response = await fetch('/api/confirmations?action=get-confirmations');
+            if (response.ok) {
+                const data = await response.json();
+                return data.confirmations || [];
+            }
+        } catch (error) {
+            console.warn('API not available, using localStorage:', error);
+        }
+        
+        // Fallback to localStorage for local development
         try {
             const stored = localStorage.getItem('confirmations');
             return stored ? JSON.parse(stored) : [];
-        } catch (error) {
-            console.error('Error loading confirmations:', error);
+        } catch (localError) {
+            console.error('Error loading confirmations from localStorage:', localError);
             return [];
         }
     }
 
-    saveConfirmations() {
-        try {
-            localStorage.setItem('confirmations', JSON.stringify(this.confirmations));
-        } catch (error) {
-            console.error('Error saving confirmations:', error);
-        }
+    async saveConfirmations() {
+        // This method is no longer needed as individual confirmations are saved via API
+        // Keeping for backward compatibility
     }
 
     findConfirmation(token) {
@@ -124,7 +136,7 @@ class ConfirmationPage {
         document.getElementById('confirmation-form').classList.remove('hidden');
     }
 
-    confirmParticipation(token, name, email, uniqueId) {
+    async confirmParticipation(token, name, email, uniqueId) {
         const confirmBtn = document.getElementById('confirm-btn');
         confirmBtn.disabled = true;
         confirmBtn.textContent = 'Confirming...';
@@ -144,9 +156,28 @@ class ConfirmationPage {
                 clickedAt: new Date().toISOString()
             };
 
-            // Save confirmation
+            // Save confirmation via API or fallback to localStorage
+            try {
+                const response = await fetch('/api/confirmations?action=add-confirmation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(confirmation)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save confirmation');
+                }
+            } catch (apiError) {
+                console.warn('API unavailable, using localStorage fallback:', apiError);
+                // Fallback to localStorage for local development
+                this.confirmations.push(confirmation);
+                localStorage.setItem('confirmations', JSON.stringify(this.confirmations));
+            }
+
+            // Update local confirmations array
             this.confirmations.push(confirmation);
-            this.saveConfirmations();
 
             // Update link tracking
             if (uniqueId) {
@@ -214,8 +245,14 @@ class ConfirmationPage {
         return 'client-ip-unavailable';
     }
 
-    getWebhookSettings() {
+    async getWebhookSettings() {
         try {
+            const response = await fetch('/api/confirmations?action=get-webhook-settings');
+            if (response.ok) {
+                const data = await response.json();
+                return data.webhookSettings || { enabled: false, url: '', secret: '' };
+            }
+            // Fallback to localStorage for local development
             const settings = localStorage.getItem('webhookSettings');
             return settings ? JSON.parse(settings) : { enabled: false, url: '', secret: '' };
         } catch (error) {
@@ -224,22 +261,36 @@ class ConfirmationPage {
         }
     }
 
-    logWebhookAttempt(url, status, payload) {
+    async logWebhookAttempt(url, status, payload) {
         try {
-            const logs = JSON.parse(localStorage.getItem('webhookLogs') || '[]');
-            logs.push({
-                timestamp: new Date().toISOString(),
-                url,
-                status,
-                payload
-            });
+            const logEntry = { url, status, payload };
             
-            // Keep only last 100 logs
-            if (logs.length > 100) {
-                logs.splice(0, logs.length - 100);
+            // Try to save to API
+            try {
+                await fetch('/api/confirmations?action=add-webhook-log', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(logEntry)
+                });
+            } catch (apiError) {
+                // Fallback to localStorage for local development
+                const logs = JSON.parse(localStorage.getItem('webhookLogs') || '[]');
+                logs.push({
+                    timestamp: new Date().toISOString(),
+                    url,
+                    status,
+                    payload
+                });
+                
+                // Keep only last 100 logs
+                if (logs.length > 100) {
+                    logs.splice(0, logs.length - 100);
+                }
+                
+                localStorage.setItem('webhookLogs', JSON.stringify(logs));
             }
-            
-            localStorage.setItem('webhookLogs', JSON.stringify(logs));
         } catch (error) {
             console.error('Error logging webhook attempt:', error);
         }
@@ -276,7 +327,12 @@ class ConfirmationLinkGenerator {
         return `${timestamp}${random}`.toUpperCase();
     }
 
-    static generateConfirmationLink(name, email, baseUrl = window.location.origin) {
+    static generateConfirmationLink(name, email, baseUrl = null) {
+        // Use current URL or default to current origin for Vercel deployments
+        if (!baseUrl) {
+            baseUrl = window.location.origin;
+        }
+        
         const token = this.generateToken();
         const uniqueId = this.generateUniqueId();
         
@@ -304,43 +360,91 @@ class ConfirmationLinkGenerator {
         return linkData;
     }
 
-    static storeLinkData(linkData) {
+    static async storeLinkData(linkData) {
         try {
-            const linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
-            linkDatabase.push(linkData);
-            localStorage.setItem('linkDatabase', JSON.stringify(linkDatabase));
+            const response = await fetch('/api/confirmations?action=add-link', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(linkData)
+            });
+            
+            if (!response.ok) {
+                throw new Error('API storage failed');
+            }
         } catch (error) {
-            console.error('Error storing link data:', error);
+            console.error('Error storing link data to API, falling back to localStorage:', error);
+            // Fallback to localStorage for local development
+            try {
+                const linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
+                linkDatabase.push(linkData);
+                localStorage.setItem('linkDatabase', JSON.stringify(linkDatabase));
+            } catch (localError) {
+                console.error('Error storing link data:', localError);
+            }
         }
     }
 
-    static updateLinkClick(uniqueId) {
+    static async updateLinkClick(uniqueId) {
         try {
-            const linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
-            const linkIndex = linkDatabase.findIndex(link => link.uniqueId === uniqueId);
+            const response = await fetch('/api/confirmations?action=update-link-click', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ uniqueId })
+            });
             
-            if (linkIndex !== -1) {
-                linkDatabase[linkIndex].clicked = true;
-                linkDatabase[linkIndex].clickedAt = new Date().toISOString();
-                localStorage.setItem('linkDatabase', JSON.stringify(linkDatabase));
+            if (!response.ok) {
+                throw new Error('API update failed');
             }
         } catch (error) {
-            console.error('Error updating link click:', error);
+            console.error('Error updating link click via API, falling back to localStorage:', error);
+            // Fallback to localStorage for local development
+            try {
+                const linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
+                const linkIndex = linkDatabase.findIndex(link => link.uniqueId === uniqueId);
+                
+                if (linkIndex !== -1) {
+                    linkDatabase[linkIndex].clicked = true;
+                    linkDatabase[linkIndex].clickedAt = new Date().toISOString();
+                    localStorage.setItem('linkDatabase', JSON.stringify(linkDatabase));
+                }
+            } catch (localError) {
+                console.error('Error updating link click:', localError);
+            }
         }
     }
 
-    static updateLinkConfirmation(uniqueId) {
+    static async updateLinkConfirmation(uniqueId) {
         try {
-            const linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
-            const linkIndex = linkDatabase.findIndex(link => link.uniqueId === uniqueId);
+            const response = await fetch('/api/confirmations?action=update-link-confirmation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ uniqueId })
+            });
             
-            if (linkIndex !== -1) {
-                linkDatabase[linkIndex].confirmed = true;
-                linkDatabase[linkIndex].confirmedAt = new Date().toISOString();
-                localStorage.setItem('linkDatabase', JSON.stringify(linkDatabase));
+            if (!response.ok) {
+                throw new Error('API update failed');
             }
         } catch (error) {
-            console.error('Error updating link confirmation:', error);
+            console.error('Error updating link confirmation via API, falling back to localStorage:', error);
+            // Fallback to localStorage for local development
+            try {
+                const linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
+                const linkIndex = linkDatabase.findIndex(link => link.uniqueId === uniqueId);
+                
+                if (linkIndex !== -1) {
+                    linkDatabase[linkIndex].confirmed = true;
+                    linkDatabase[linkIndex].confirmedAt = new Date().toISOString();
+                    localStorage.setItem('linkDatabase', JSON.stringify(linkDatabase));
+                }
+            } catch (localError) {
+                console.error('Error updating link confirmation:', localError);
+            }
         }
     }
 }

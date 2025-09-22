@@ -1,0 +1,26 @@
+{
+  "name": "confirmation-page",
+  "version": "1.0.0",
+  "description": "A web-based system for tracking student participation and photo consent confirmations",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python3 -m http.server 8000",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ggeorge185/Confirmation-page.git"
+  },
+  "engines": {
+    "node": "18.x"
+  },
+  "keywords": [
+    "confirmation",
+    "vercel",
+    "serverless",
+    "tracking"
+  ],
+  "author": "ggeorge185",
+  "license": "MIT",
+  "dependencies": {}
+}
