@@ -121,6 +121,89 @@
             color: #666;
             margin-top: 0.5rem;
         }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-group label input[type="checkbox"] {
+            width: auto;
+            margin-right: 0.5rem;
+        }
+        
+        .form-group small {
+            display: block;
+            color: #666;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+        
+        .tracking-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .tracking-table th,
+        .tracking-table td {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        
+        .tracking-table th {
+            background: #4facfe;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .tracking-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .status-clicked {
+            background: #ffeaa7;
+            color: #fdcb6e;
+        }
+        
+        .status-confirmed {
+            background: #55a3ff;
+            color: white;
+        }
+        
+        .status-pending {
+            background: #ddd;
+            color: #666;
+        }
+        
+        .webhook-log {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        
+        .webhook-success {
+            border-left: 4px solid #28a745;
+        }
+        
+        .webhook-error {
+            border-left: 4px solid #dc3545;
+        }
     </style>
 </head>
 <body>
@@ -165,6 +248,65 @@
                 </div>
             </div>
             
+            <!-- Webhook Configuration -->
+            <div class="admin-section">
+                <h3>🔗 Webhook Configuration</h3>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="webhook-enabled"> Enable Real-time Webhooks
+                    </label>
+                    <small>Send notifications when links are clicked or confirmations are received</small>
+                </div>
+                <div class="form-group">
+                    <label for="webhook-url">Webhook URL:</label>
+                    <input type="url" id="webhook-url" placeholder="https://your-server.com/webhook">
+                    <small>URL where webhook notifications will be sent (POST requests)</small>
+                </div>
+                <div class="form-group">
+                    <label for="webhook-secret">Webhook Secret (optional):</label>
+                    <input type="text" id="webhook-secret" placeholder="your-secret-key">
+                    <small>Secret key sent in X-Webhook-Secret header for verification</small>
+                </div>
+                <button class="btn" onclick="saveWebhookSettings()">Save Webhook Settings</button>
+                <button class="btn" onclick="testWebhook()">Test Webhook</button>
+            </div>
+
+            <!-- Link Tracking Analytics -->
+            <div class="admin-section">
+                <h3>📊 Link Tracking & Analytics</h3>
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-links-generated">0</div>
+                        <div class="stat-label">Total Links Generated</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-clicks">0</div>
+                        <div class="stat-label">Total Clicks</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="conversion-rate">0%</div>
+                        <div class="stat-label">Conversion Rate</div>
+                    </div>
+                </div>
+                
+                <div id="link-tracking-container">
+                    <p>Loading tracking data...</p>
+                </div>
+                
+                <button class="btn" onclick="downloadLinkAnalytics()">Download Analytics CSV</button>
+                <button class="btn" onclick="refreshLinkTracking()">Refresh Data</button>
+            </div>
+
+            <!-- Webhook Logs -->
+            <div class="admin-section">
+                <h3>🔍 Webhook Activity Logs</h3>
+                <div id="webhook-logs-container">
+                    <p>Loading webhook logs...</p>
+                </div>
+                <button class="btn" onclick="refreshWebhookLogs()">Refresh Logs</button>
+                <button class="btn btn-danger" onclick="clearWebhookLogs()">Clear Logs</button>
+            </div>
+
             <!-- Bulk Link Generation -->
             <div class="admin-section">
                 <h3>📋 Bulk Link Generation</h3>

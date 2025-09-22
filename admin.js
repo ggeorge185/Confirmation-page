@@ -26,6 +26,9 @@ class AdminPanel {
     init() {
         this.updateStats();
         this.displayConfirmations();
+        this.loadWebhookSettings();
+        this.updateLinkTracking();
+        this.displayWebhookLogs();
     }
 
     updateStats() {
@@ -38,6 +41,122 @@ class AdminPanel {
 
         document.getElementById('total-confirmations').textContent = total;
         document.getElementById('today-confirmations').textContent = today;
+        
+        // Update link tracking stats
+        this.updateLinkTrackingStats();
+    }
+
+    updateLinkTrackingStats() {
+        try {
+            const linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
+            const totalLinks = linkDatabase.length;
+            const totalClicks = linkDatabase.filter(link => link.clicked).length;
+            const totalConfirmations = linkDatabase.filter(link => link.confirmed).length;
+            const conversionRate = totalClicks > 0 ? Math.round((totalConfirmations / totalClicks) * 100) : 0;
+
+            document.getElementById('total-links-generated').textContent = totalLinks;
+            document.getElementById('total-clicks').textContent = totalClicks;
+            document.getElementById('conversion-rate').textContent = `${conversionRate}%`;
+        } catch (error) {
+            console.error('Error updating link tracking stats:', error);
+        }
+    }
+
+    updateLinkTracking() {
+        try {
+            const linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
+            const container = document.getElementById('link-tracking-container');
+            
+            if (linkDatabase.length === 0) {
+                container.innerHTML = '<p>No tracking data available.</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'tracking-table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Unique ID</th>
+                        <th>Created</th>
+                        <th>Status</th>
+                        <th>Clicked</th>
+                        <th>Confirmed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${linkDatabase.map(link => `
+                        <tr>
+                            <td>${this.escapeHtml(link.name)}</td>
+                            <td>${this.escapeHtml(link.email)}</td>
+                            <td><code>${link.uniqueId}</code></td>
+                            <td>${new Date(link.createdAt).toLocaleDateString()}</td>
+                            <td>
+                                <span class="status-badge ${this.getStatusClass(link)}">
+                                    ${this.getStatusText(link)}
+                                </span>
+                            </td>
+                            <td>${link.clickedAt ? new Date(link.clickedAt).toLocaleString() : '-'}</td>
+                            <td>${link.confirmedAt ? new Date(link.confirmedAt).toLocaleString() : '-'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+
+            container.innerHTML = '';
+            container.appendChild(table);
+        } catch (error) {
+            console.error('Error updating link tracking:', error);
+        }
+    }
+
+    getStatusClass(link) {
+        if (link.confirmed) return 'status-confirmed';
+        if (link.clicked) return 'status-clicked';
+        return 'status-pending';
+    }
+
+    getStatusText(link) {
+        if (link.confirmed) return 'Confirmed';
+        if (link.clicked) return 'Clicked';
+        return 'Pending';
+    }
+
+    loadWebhookSettings() {
+        try {
+            const settings = JSON.parse(localStorage.getItem('webhookSettings') || '{}');
+            document.getElementById('webhook-enabled').checked = settings.enabled || false;
+            document.getElementById('webhook-url').value = settings.url || '';
+            document.getElementById('webhook-secret').value = settings.secret || '';
+        } catch (error) {
+            console.error('Error loading webhook settings:', error);
+        }
+    }
+
+    displayWebhookLogs() {
+        try {
+            const logs = JSON.parse(localStorage.getItem('webhookLogs') || '[]');
+            const container = document.getElementById('webhook-logs-container');
+            
+            if (logs.length === 0) {
+                container.innerHTML = '<p>No webhook activity yet.</p>';
+                return;
+            }
+
+            const logsHtml = logs.slice(-20).reverse().map(log => `
+                <div class="webhook-log ${log.status === 'failed' ? 'webhook-error' : 'webhook-success'}">
+                    <strong>${new Date(log.timestamp).toLocaleString()}</strong> - ${log.url}<br>
+                    Status: ${log.status}<br>
+                    ${log.payload ? `Event: ${log.payload.event || 'unknown'}` : ''}
+                </div>
+            `).join('');
+
+            container.innerHTML = logsHtml;
+        } catch (error) {
+            console.error('Error displaying webhook logs:', error);
+        }
     }
 
     displayConfirmations() {
@@ -85,15 +204,19 @@ class AdminPanel {
         this.confirmations = this.loadConfirmations();
         this.updateStats();
         this.displayConfirmations();
+        this.updateLinkTracking();
+        this.displayWebhookLogs();
     }
 
     clearAll() {
         if (confirm('Are you sure you want to clear all confirmation data? This cannot be undone.')) {
             localStorage.removeItem('confirmations');
+            localStorage.removeItem('linkDatabase');
             this.confirmations = [];
             this.updateStats();
             this.displayConfirmations();
-            alert('All confirmation data has been cleared.');
+            this.updateLinkTracking();
+            alert('All confirmation and tracking data has been cleared.');
         }
     }
 }
@@ -220,6 +343,115 @@ function clearAllConfirmations() {
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+}
+
+function saveWebhookSettings() {
+    const settings = {
+        enabled: document.getElementById('webhook-enabled').checked,
+        url: document.getElementById('webhook-url').value.trim(),
+        secret: document.getElementById('webhook-secret').value.trim()
+    };
+
+    if (settings.enabled && !settings.url) {
+        alert('Please enter a webhook URL.');
+        return;
+    }
+
+    try {
+        localStorage.setItem('webhookSettings', JSON.stringify(settings));
+        alert('Webhook settings saved successfully!');
+    } catch (error) {
+        alert('Error saving webhook settings.');
+        console.error(error);
+    }
+}
+
+async function testWebhook() {
+    const settings = {
+        enabled: document.getElementById('webhook-enabled').checked,
+        url: document.getElementById('webhook-url').value.trim(),
+        secret: document.getElementById('webhook-secret').value.trim()
+    };
+
+    if (!settings.url) {
+        alert('Please enter a webhook URL first.');
+        return;
+    }
+
+    const testPayload = {
+        event: 'webhook_test',
+        timestamp: new Date().toISOString(),
+        data: {
+            message: 'This is a test webhook from your confirmation page system.'
+        }
+    };
+
+    try {
+        const response = await fetch(settings.url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(settings.secret && {
+                    'X-Webhook-Secret': settings.secret
+                })
+            },
+            body: JSON.stringify(testPayload)
+        });
+
+        if (response.ok) {
+            alert(`Webhook test successful! Status: ${response.status}`);
+        } else {
+            alert(`Webhook test failed. Status: ${response.status}`);
+        }
+    } catch (error) {
+        alert(`Webhook test failed: ${error.message}`);
+    }
+}
+
+function downloadLinkAnalytics() {
+    try {
+        const linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
+        
+        if (linkDatabase.length === 0) {
+            alert('No tracking data to download.');
+            return;
+        }
+
+        const csvContent = 'Name,Email,Unique ID,Token,Created,Clicked,Confirmed,Click Time,Confirmation Time\n' + 
+            linkDatabase.map(link => {
+                return `"${link.name}","${link.email}","${link.uniqueId}","${link.token}","${link.createdAt}","${link.clicked}","${link.confirmed}","${link.clickedAt || ''}","${link.confirmedAt || ''}"`;
+            }).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `link-analytics-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        alert('Error downloading analytics data.');
+        console.error(error);
+    }
+}
+
+function refreshLinkTracking() {
+    adminPanel.updateLinkTracking();
+    adminPanel.updateLinkTrackingStats();
+}
+
+function refreshWebhookLogs() {
+    adminPanel.displayWebhookLogs();
+}
+
+function clearWebhookLogs() {
+    if (confirm('Are you sure you want to clear all webhook logs?')) {
+        localStorage.removeItem('webhookLogs');
+        adminPanel.displayWebhookLogs();
+        alert('Webhook logs cleared.');
+    }
 }
 
 // Initialize admin panel when DOM is loaded
