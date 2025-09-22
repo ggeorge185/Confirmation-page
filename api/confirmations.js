@@ -1,10 +1,8 @@
 // API endpoint for storing and retrieving confirmations
 // This replaces localStorage functionality for Vercel deployment
+// Now uses file-based storage for persistence
 
-let confirmations = [];
-let linkDatabase = [];
-let webhookLogs = [];
-let webhookSettings = { enabled: false, url: '', secret: '' };
+import { storage } from './storage.js';
 
 export default function handler(req, res) {
   // Enable CORS
@@ -21,66 +19,66 @@ export default function handler(req, res) {
   try {
     switch (action) {
       case 'get-confirmations':
+        const confirmations = storage.getConfirmations();
         return res.status(200).json({ confirmations });
 
       case 'add-confirmation':
         const confirmation = req.body;
-        confirmations.push(confirmation);
-        return res.status(200).json({ success: true, confirmation });
+        const success = storage.addConfirmation(confirmation);
+        if (success) {
+          return res.status(200).json({ success: true, confirmation });
+        } else {
+          return res.status(500).json({ error: 'Failed to save confirmation' });
+        }
 
       case 'get-links':
+        const linkDatabase = storage.getLinks();
         return res.status(200).json({ linkDatabase });
 
       case 'add-link':
         const linkData = req.body;
-        linkDatabase.push(linkData);
-        return res.status(200).json({ success: true, linkData });
+        const linkSuccess = storage.addLink(linkData);
+        if (linkSuccess) {
+          return res.status(200).json({ success: true, linkData });
+        } else {
+          return res.status(500).json({ error: 'Failed to save link data' });
+        }
 
       case 'update-link-click':
         const { uniqueId: clickId } = req.body;
-        const linkIndex = linkDatabase.findIndex(link => link.uniqueId === clickId);
-        if (linkIndex !== -1) {
-          linkDatabase[linkIndex].clicked = true;
-          linkDatabase[linkIndex].clickedAt = new Date().toISOString();
-        }
-        return res.status(200).json({ success: true });
+        const clickSuccess = storage.updateLinkClick(clickId);
+        return res.status(200).json({ success: clickSuccess });
 
       case 'update-link-confirmation':
         const { uniqueId: confirmId } = req.body;
-        const confirmIndex = linkDatabase.findIndex(link => link.uniqueId === confirmId);
-        if (confirmIndex !== -1) {
-          linkDatabase[confirmIndex].confirmed = true;
-          linkDatabase[confirmIndex].confirmedAt = new Date().toISOString();
-        }
-        return res.status(200).json({ success: true });
+        const confirmSuccess = storage.updateLinkConfirmation(confirmId);
+        return res.status(200).json({ success: confirmSuccess });
 
       case 'get-webhook-settings':
+        const webhookSettings = storage.getWebhookSettings();
         return res.status(200).json({ webhookSettings });
 
       case 'save-webhook-settings':
-        webhookSettings = req.body;
-        return res.status(200).json({ success: true });
+        const settings = req.body;
+        const settingsSuccess = storage.saveWebhookSettings(settings);
+        if (settingsSuccess) {
+          return res.status(200).json({ success: true });
+        } else {
+          return res.status(500).json({ error: 'Failed to save webhook settings' });
+        }
 
       case 'get-webhook-logs':
+        const webhookLogs = storage.getWebhookLogs();
         return res.status(200).json({ webhookLogs });
 
       case 'add-webhook-log':
         const logEntry = req.body;
-        webhookLogs.push({
-          ...logEntry,
-          timestamp: new Date().toISOString()
-        });
-        // Keep only last 100 logs
-        if (webhookLogs.length > 100) {
-          webhookLogs.splice(0, webhookLogs.length - 100);
-        }
-        return res.status(200).json({ success: true });
+        const logSuccess = storage.addWebhookLog(logEntry);
+        return res.status(200).json({ success: logSuccess });
 
       case 'clear-all':
-        confirmations = [];
-        linkDatabase = [];
-        webhookLogs = [];
-        return res.status(200).json({ success: true });
+        const clearSuccess = storage.clearAll();
+        return res.status(200).json({ success: clearSuccess });
 
       default:
         return res.status(400).json({ error: 'Invalid action' });
