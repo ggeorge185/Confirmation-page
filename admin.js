@@ -1,29 +1,39 @@
 // Admin functionality for confirmation management
 class AdminPanel {
     constructor() {
-        this.confirmations = this.loadConfirmations();
+        this.confirmations = [];
         this.init();
     }
 
-    loadConfirmations() {
+    async loadConfirmations() {
         try {
+            const response = await fetch('/api/confirmations?action=get-confirmations');
+            if (response.ok) {
+                const data = await response.json();
+                return data.confirmations || [];
+            }
+            // Fallback to localStorage for local development
             const stored = localStorage.getItem('confirmations');
             return stored ? JSON.parse(stored) : [];
         } catch (error) {
             console.error('Error loading confirmations:', error);
-            return [];
+            // Fallback to localStorage for local development
+            try {
+                const stored = localStorage.getItem('confirmations');
+                return stored ? JSON.parse(stored) : [];
+            } catch (localError) {
+                return [];
+            }
         }
     }
 
-    saveConfirmations() {
-        try {
-            localStorage.setItem('confirmations', JSON.stringify(this.confirmations));
-        } catch (error) {
-            console.error('Error saving confirmations:', error);
-        }
+    async saveConfirmations() {
+        // This method is no longer needed as individual confirmations are saved via API
+        // Keeping for backward compatibility
     }
 
-    init() {
+    async init() {
+        this.confirmations = await this.loadConfirmations();
         this.updateStats();
         this.displayConfirmations();
         this.loadWebhookSettings();
@@ -46,9 +56,20 @@ class AdminPanel {
         this.updateLinkTrackingStats();
     }
 
-    updateLinkTrackingStats() {
+    async updateLinkTrackingStats() {
         try {
-            const linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
+            let linkDatabase = [];
+            try {
+                const response = await fetch('/api/confirmations?action=get-links');
+                if (response.ok) {
+                    const data = await response.json();
+                    linkDatabase = data.linkDatabase || [];
+                }
+            } catch (apiError) {
+                // Fallback to localStorage for local development
+                linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
+            }
+            
             const totalLinks = linkDatabase.length;
             const totalClicks = linkDatabase.filter(link => link.clicked).length;
             const totalConfirmations = linkDatabase.filter(link => link.confirmed).length;
@@ -62,9 +83,20 @@ class AdminPanel {
         }
     }
 
-    updateLinkTracking() {
+    async updateLinkTracking() {
         try {
-            const linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
+            let linkDatabase = [];
+            try {
+                const response = await fetch('/api/confirmations?action=get-links');
+                if (response.ok) {
+                    const data = await response.json();
+                    linkDatabase = data.linkDatabase || [];
+                }
+            } catch (apiError) {
+                // Fallback to localStorage for local development
+                linkDatabase = JSON.parse(localStorage.getItem('linkDatabase') || '[]');
+            }
+            
             const container = document.getElementById('link-tracking-container');
             
             if (linkDatabase.length === 0) {
@@ -124,9 +156,20 @@ class AdminPanel {
         return 'Pending';
     }
 
-    loadWebhookSettings() {
+    async loadWebhookSettings() {
         try {
-            const settings = JSON.parse(localStorage.getItem('webhookSettings') || '{}');
+            let settings = {};
+            try {
+                const response = await fetch('/api/confirmations?action=get-webhook-settings');
+                if (response.ok) {
+                    const data = await response.json();
+                    settings = data.webhookSettings || {};
+                }
+            } catch (apiError) {
+                // Fallback to localStorage for local development
+                settings = JSON.parse(localStorage.getItem('webhookSettings') || '{}');
+            }
+            
             document.getElementById('webhook-enabled').checked = settings.enabled || false;
             document.getElementById('webhook-url').value = settings.url || '';
             document.getElementById('webhook-secret').value = settings.secret || '';
@@ -135,9 +178,20 @@ class AdminPanel {
         }
     }
 
-    displayWebhookLogs() {
+    async displayWebhookLogs() {
         try {
-            const logs = JSON.parse(localStorage.getItem('webhookLogs') || '[]');
+            let logs = [];
+            try {
+                const response = await fetch('/api/confirmations?action=get-webhook-logs');
+                if (response.ok) {
+                    const data = await response.json();
+                    logs = data.webhookLogs || [];
+                }
+            } catch (apiError) {
+                // Fallback to localStorage for local development
+                logs = JSON.parse(localStorage.getItem('webhookLogs') || '[]');
+            }
+            
             const container = document.getElementById('webhook-logs-container');
             
             if (logs.length === 0) {
@@ -200,18 +254,26 @@ class AdminPanel {
         return div.innerHTML;
     }
 
-    refresh() {
-        this.confirmations = this.loadConfirmations();
+    async refresh() {
+        this.confirmations = await this.loadConfirmations();
         this.updateStats();
         this.displayConfirmations();
         this.updateLinkTracking();
         this.displayWebhookLogs();
     }
 
-    clearAll() {
+    async clearAll() {
         if (confirm('Are you sure you want to clear all confirmation data? This cannot be undone.')) {
-            localStorage.removeItem('confirmations');
-            localStorage.removeItem('linkDatabase');
+            try {
+                // Try to clear via API
+                await fetch('/api/confirmations?action=clear-all', { method: 'POST' });
+            } catch (apiError) {
+                // Fallback to localStorage for local development
+                localStorage.removeItem('confirmations');
+                localStorage.removeItem('linkDatabase');
+                localStorage.removeItem('webhookLogs');
+            }
+            
             this.confirmations = [];
             this.updateStats();
             this.displayConfirmations();
@@ -345,7 +407,7 @@ function isValidEmail(email) {
     return emailRegex.test(email);
 }
 
-function saveWebhookSettings() {
+async function saveWebhookSettings() {
     const settings = {
         enabled: document.getElementById('webhook-enabled').checked,
         url: document.getElementById('webhook-url').value.trim(),
@@ -358,7 +420,20 @@ function saveWebhookSettings() {
     }
 
     try {
-        localStorage.setItem('webhookSettings', JSON.stringify(settings));
+        // Try to save via API
+        try {
+            await fetch('/api/confirmations?action=save-webhook-settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(settings)
+            });
+        } catch (apiError) {
+            // Fallback to localStorage for local development
+            localStorage.setItem('webhookSettings', JSON.stringify(settings));
+        }
+        
         alert('Webhook settings saved successfully!');
     } catch (error) {
         alert('Error saving webhook settings.');
