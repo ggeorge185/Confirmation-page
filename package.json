@@ -12,7 +12,7 @@
     "url": "https://github.com/ggeorge185/Confirmation-page.git"
   },
   "engines": {
-    "node": "18.x"
+    "node": "22.x"
   },
   "keywords": [
     "confirmation",
